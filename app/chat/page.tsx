@@ -32,13 +32,16 @@ const page = () => {
   return (
     <div className='flex flex-col items-center min-h-screen bg-gray-50'>
       <Navbar />
-      <Input
-        placeholder='Enter the YouTube Link'
-        className='w-sm mt-4 mb-4'
-        value={url}
-        onChange={e => setUrl(e.target.value)}
-      />
-      <Button className='mb-4' onClick={handleUrl}>Load Video</Button>
+      <div className="flex flex-row items-center justify-center gap-4 w-full mt-6 mb-6">
+        <Input
+          placeholder='Enter the YouTube Link'
+          className='w-sm'
+          value={url}
+          onChange={e => setUrl(e.target.value)}
+        />
+        <Button onClick={handleUrl}>Load Video</Button>
+      </div>
+      
       <div className="flex flex-row justify-start items-start gap-8 w-full max-w-6xl pl-8">
         <div className="flex-1 flex justify-end">
           {videoId ? (

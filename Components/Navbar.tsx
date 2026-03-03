@@ -1,18 +1,17 @@
 import React from 'react'
-import { Button } from './ui/button'
-import Link from 'next/link'
 
 const Navbar = () => {
   return (
-    <div className='w-screen h-14 bg-[#0a0a0a] flex items-center justify-around'>
-        <h1 style={{ fontFamily: '"Rubik Spray Paint", system-ui' }} className='text-white text-2xl'>Video Chat</h1>
-        <div className="box w-64 flex text-white items-center justify-between">
-            <p><Link href="/">Home</Link></p>
-            <p><Link href="/about">About</Link></p>
-            <p><Link href="/Contact us">Contact us</Link></p>
-            {/* <Button variant="default">Login</Button> */}
-        </div>
-    </div>
+    <nav className='w-3/4 sm:w-3/5 md:w-3/4 lg:w-3/4 xl:w-2/4 2xl:w-2/4 h-12 rounded-4xl bg-black flex justify-around items-center px-6 mt-4'>
+      <img src="/logo.svg" alt="Logo of Video Chat" className="h-8 w-8 object-contain brightness-0 invert flex-shrink-0" />
+
+      <div className="nav-links w-3/4 md:w-4/5 text-xs sm:text-xs md:text-xs lg:text-base h-full flex justify-around m items-center text-white">
+          <a href="/" className='hover:border-b-2' >Home</a>
+          <a href="/chat" className='hover:border-b-2'>Chat</a>
+          <a href="/about" className='hover:border-b-2'>About</a>
+          <a href="/contact" className='hover:border-b-2'>Contact</a>
+      </div>
+    </nav>
   )
 }
 

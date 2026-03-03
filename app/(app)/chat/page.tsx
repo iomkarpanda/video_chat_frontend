@@ -1,13 +1,25 @@
 'use client'
 import { Input } from '@/Components/ui/input'
-import React from 'react'
-import Navbar from '@/Components/Navbar'
 import { useState } from 'react'
 import { Button } from '@/Components/ui/button'
+import axios from "axios"
 
 const page = () => {
     const [url, setUrl] = useState("");
     const [videoId, setId] = useState("");
+    const [transcript,setTranscipt] = useState("")
+
+    async function getTranscript(id:string){
+      try{
+        const res = await axios.post("http://127.0.0.1:8000/transcript/get/",{video_id:id},{headers: {"Content-Type": "application/json"}})
+        setTranscipt(res.data)
+        console.log(transcript)
+        }
+      catch(error){
+        console.log(error)
+      }
+      
+    }
 
     function handleUrl() {
       let Id = "";
@@ -27,39 +39,37 @@ const page = () => {
         }
       }
       setId(Id);
+      getTranscript(videoId)
     }
 
   return (
-    <div className='flex flex-col items-center min-h-screen bg-gray-50'>
-      <Navbar />
-      <div className="flex flex-row items-center justify-center gap-4 w-full mt-6 mb-6">
+    <div className='flex flex-col items-center w-full flex-1 bg-gray-50'>
+      <div className="flex flex-row items-center justify-center gap-2 sm:gap-4 w-full mt-10 mb-6 px-4">
         <Input
           placeholder='Enter the YouTube Link'
-          className='w-sm'
+          className='w-40 sm:w-64 md:w-80 text-xs sm:text-sm'
           value={url}
-          onChange={e => setUrl(e.target.value)}
+          onChange={(e)=> setUrl(e.target.value)}
         />
-        <Button onClick={handleUrl}>Load Video</Button>
+        <Button onClick={handleUrl} className='h-9 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap'>Load Video</Button>
       </div>
       
-      <div className="flex flex-row justify-start items-start gap-8 w-full max-w-6xl pl-8">
-        <div className="flex-1 flex justify-end">
+      <div className="chat-div flex flex-col lg:flex-row justify-center items-center gap-6 w-full max-w-6xl px-4">
+        <div className="first-div w-full lg:w-1/2 min-h-75 flex justify-center items-center">
           {videoId ? (
             <iframe
-              width="720"
-              height="400"
               src={`https://www.youtube.com/embed/${videoId}`}
               title="YouTube video player"
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               referrerPolicy="strict-origin-when-cross-origin"
-              className="rounded-lg shadow-lg"
+              className="block w-full max-w-130 aspect-video rounded-lg shadow-lg mx-auto"
             ></iframe>
           ) : (
-            <div className='text-gray-500 flex items-center justify-center h-full'>Enter a valid YouTube link and click Load Video</div>
+            <div className='text-gray-500 flex items-center justify-center w-full max-w-130 h-75 mx-auto'>Enter a valid YouTube link and click Load Video</div>
           )}
         </div>
-        <div className="chat-area w-[550px] min-h-[400px] bg-white rounded-lg shadow-lg p-4 flex flex-col ml-8">
+        <div className="chat-area w-full lg:w-1/2 max-w-130 min-h-100 bg-white rounded-lg shadow-lg p-4 flex flex-col">
           <div className="flex-1 overflow-y-auto mb-2">
             {/* Chat messages will go here */}
             <div className="text-gray-400 text-center mt-20">Chat area (coming soon)</div>

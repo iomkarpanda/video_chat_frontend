@@ -13,7 +13,7 @@ const page = () => {
       try{
         const res = await axios.post("http://127.0.0.1:8000/transcript/get/",{video_id:id},{headers: {"Content-Type": "application/json"}})
         setTranscipt(res.data)
-        console.log(transcript)
+        console.log("Transcript data:", res.data)
         }
       catch(error){
         console.log(error)
@@ -39,7 +39,7 @@ const page = () => {
         }
       }
       setId(Id);
-      getTranscript(videoId)
+      // getTranscript(Id)
     }
 
   return (

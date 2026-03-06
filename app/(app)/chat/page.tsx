@@ -9,6 +9,7 @@ const page = () => {
     const [url, setUrl] = useState("");
     const [videoId, setId] = useState("");
     const [transcript,setTranscipt] = useState("")
+    const [transcriptReady, setTranscriptReady] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [processingStatus, setProcessingStatus] = useState("")
     const [error, setError] = useState("")
@@ -20,7 +21,7 @@ const page = () => {
       
       try {
         console.log(`Processing video: ${id}`)
-        setProcessingStatus("Downloading audio and transcribing...")
+        setProcessingStatus("Fetching transcript and processing...")
         
         const res = await axios.post(
           "http://127.0.0.1:8000/transcript/get/",
@@ -33,7 +34,7 @@ const page = () => {
         if (res.data.data?.status === "completed") {
           setProcessingStatus("✓ Video processed successfully! Pipeline complete.")
           setTranscipt(res.data)
-          
+          setTranscriptReady(true)
           // Log pipeline details
           const steps = res.data.data.steps
           console.log("Pipeline steps completed:")
@@ -42,7 +43,6 @@ const page = () => {
           if (steps.chunking?.status === "success") console.log(`✓ Chunked into ${steps.chunking.num_chunks} pieces`)
           if (steps.embeddings?.status === "success") console.log(`✓ Generated ${steps.embeddings.num_embeddings} embeddings`)
           if (steps.vector_storage?.status === "success") console.log(`✓ Stored in vector database`)
-          
           // Hide success message after 2 seconds
           setTimeout(() => {
             setProcessingStatus("")
@@ -50,12 +50,14 @@ const page = () => {
         } else {
           setError("Pipeline did not complete successfully")
           setProcessingStatus("")
+          setTranscriptReady(false)
           console.error("Pipeline failed:", res.data)
         }
       } catch(error: any) {
         console.error("Error processing video:", error)
         setError(error.response?.data?.error || error.message || "Failed to process video")
         setProcessingStatus("")
+        setTranscriptReady(false)
       } finally {
         setIsLoading(false)
       }
@@ -137,21 +139,7 @@ const page = () => {
             <div className='text-gray-500 flex items-center justify-center w-full max-w-130 h-75 mx-auto'>Enter a valid YouTube link and click Load Video</div>
           )}
         </div>
-        {transcript ? (
-          <Chat />
-        ) : (
-          <div className="chat-area w-full lg:w-1/2 max-w-130 min-h-100 bg-white rounded-lg shadow-lg p-4 flex flex-col">
-            <div className="flex-1 overflow-y-auto mb-2">
-              <div className="text-gray-400 text-center mt-20">
-                {isLoading ? "Processing video..." : "Chat area (ready when video is processed)"}
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Input placeholder="Type a message..." className="flex-1" disabled />
-              <Button disabled>Send</Button>
-            </div>
-          </div>
-        )}
+        <Chat />
       </div>
     </div>
   )

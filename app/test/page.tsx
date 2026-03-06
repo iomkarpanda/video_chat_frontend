@@ -3,6 +3,7 @@ import React from 'react'
 import Navbar from '@/Components/Navbar'
 import Hero from '@/Components/Hero'
 import Chat from '@/Components/Chat'
+
 const page = () => {
 
   return (

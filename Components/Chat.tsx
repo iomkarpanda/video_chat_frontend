@@ -4,18 +4,69 @@ import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 
 
+
 const Chat = () => {
   const [userMessage, setUserMessage] = useState("");
-  // messages: { role: 'user' | 'assistant', content: string }
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([]);
   const [loading, setLoading] = useState(false);
-  const [provider, setProvider] = useState<'ollama' | 'gemini'>('gemini'); // Default to Gemini
+  const [provider, setProvider] = useState<'ollama' | 'gemini'>('gemini');
   const chatDivRef = useRef<HTMLDivElement>(null);
   const backendUrl = "http://127.0.0.1:8000/llm/chat/";
 
+  // Transcript ingest states
+  const [videoId, setVideoId] = useState("");
+  const [ingestLoading, setIngestLoading] = useState(false);
+  const [ingestResult, setIngestResult] = useState<string | null>(null);
+  const [ingestError, setIngestError] = useState<string | null>(null);
+  const [transcriptReady, setTranscriptReady] = useState(false);
+
+  // Helper to extract video ID from YouTube link or ID
+  function extractVideoId(input: string): string | null {
+    // Match standard, short, and embed URLs
+    const patterns = [
+      /(?:v=|\/embed\/|youtu\.be\/)([\w-]{11})/, // v=, /embed/, youtu.be
+      /^([\w-]{11})$/ // plain ID
+    ];
+    for (const pattern of patterns) {
+      const match = input.match(pattern);
+      if (match && match[1]) return match[1];
+    }
+    return null;
+  }
+
+  async function handleIngestTranscript() {
+    setIngestLoading(true);
+    setIngestResult('Fetching transcript and processing...');
+    setIngestError(null);
+    setTranscriptReady(false);
+    const extractedId = extractVideoId(videoId.trim());
+    if (!extractedId) {
+      setIngestError("Invalid YouTube link or video ID");
+      setIngestLoading(false);
+      setIngestResult(null);
+      return;
+    }
+    try {
+      const res = await fetch("http://127.0.0.1:8000/transcript/get/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ video_id: extractedId })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to fetch transcript and process");
+      setIngestResult("Transcript fetched and processed successfully!");
+      setTranscriptReady(true);
+    } catch (err: any) {
+      setIngestError(err.message || "Error sending request");
+      setTranscriptReady(false);
+      setIngestResult(null);
+    } finally {
+      setIngestLoading(false);
+    }
+  }
 
   async function sendMessage() {
-    if (userMessage.trim() === "" || loading) return;
+    if (userMessage.trim() === "" || loading || !transcriptReady) return;
     const userMsg = userMessage;
     setMessages((prev) => [...prev, { role: 'user', content: userMsg }]);
     setUserMessage("");
@@ -35,7 +86,6 @@ const Chat = () => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to get response");
-      // Try to get the response from data.response or data.llm_response.message.content
       let llmContent = data.response;
       if (!llmContent && data.llm_response && data.llm_response.message && data.llm_response.message.content) {
         llmContent = data.llm_response.message.content;
@@ -65,6 +115,7 @@ const Chat = () => {
 
   return (
     <div className="chat-area w-full lg:w-1/2 max-w-130 min-h-120 bg-white rounded-lg shadow-lg p-4 flex flex-col">
+
       {/* Provider Selector */}
       <div className="mb-3 flex items-center gap-2 pb-2 border-b">
         <span className="text-sm font-medium text-gray-700">LLM Provider:</span>
@@ -93,7 +144,17 @@ const Chat = () => {
           </button>
         </div>
       </div>
-      
+
+      {/* Status message for transcript fetching/processing */}
+      {ingestLoading && (
+        <div className="text-blue-500 text-center mb-2">{ingestResult || 'Fetching transcript and processing...'}</div>
+      )}
+      {ingestError && (
+        <div className="text-red-500 text-center mb-2">{ingestError}</div>
+      )}
+      {ingestResult && !ingestLoading && !ingestError && (
+        <div className="text-green-600 text-center mb-2">{ingestResult}</div>
+      )}
       <div className="flex-1 max-h-96 overflow-y-auto mb-2" ref={chatDivRef}>
         {messages.length === 0 ? (
           <div className="text-gray-400 text-center mt-20 ">No messages yet.</div>
@@ -120,14 +181,15 @@ const Chat = () => {
       </div>
       <div className="flex justify-center items-center gap-2">
         <Textarea
-          placeholder="Type a message..."
+          placeholder={transcriptReady ? "Type a message..." : "Ingest a transcript first..."}
           className="h-10 w-full resize-none"
           style={{ height: '2.5rem', minHeight: '2.5rem', maxHeight: '2.5rem' }}
           value={userMessage}
           onChange={(e) => setUserMessage(e.target.value)}
           onKeyDown={handleInputKeyDown}
+          disabled={!transcriptReady}
         />
-        <Button onClick={sendMessage} disabled={userMessage.trim() === "" || loading}>
+        <Button onClick={sendMessage} disabled={userMessage.trim() === "" || loading || !transcriptReady}>
           {loading ? 'Sending...' : 'Send'}
         </Button>
       </div>

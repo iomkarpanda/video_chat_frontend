@@ -2,60 +2,40 @@
 import { Input } from '@/Components/ui/input'
 import { useState } from 'react'
 import { Button } from '@/Components/ui/button'
-import axios from "axios"
 import Chat from '@/Components/Chat'
+import { extractYouTubeVideoId, processVideo } from '@/lib/video-chat-api'
 
 const page = () => {
     const [url, setUrl] = useState("");
     const [videoId, setId] = useState("");
-    const [transcript,setTranscipt] = useState("")
     const [transcriptReady, setTranscriptReady] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [processingStatus, setProcessingStatus] = useState("")
     const [error, setError] = useState("")
+    const [provider, setProvider] = useState<'ollama' | 'gemini'>('gemini')
 
-    async function processVideo(id: string) {
+    async function handleProcessVideo(extractedId: string) {
       setIsLoading(true)
       setError("")
-      setProcessingStatus("Starting video processing pipeline...")
+      setProcessingStatus("Processing video transcript...")
       
       try {
-        console.log(`Processing video: ${id}`)
-        setProcessingStatus("Fetching transcript and processing...")
-        
-        const res = await axios.post(
-          "http://127.0.0.1:8000/transcript/get/",
-          { video_id: id },
-          { headers: { "Content-Type": "application/json" } }
-        )
-        
-        console.log("Pipeline result:", res.data)
-        
-        if (res.data.data?.status === "completed") {
-          setProcessingStatus("✓ Video processed successfully! Pipeline complete.")
-          setTranscipt(res.data)
-          setTranscriptReady(true)
-          // Log pipeline details
-          const steps = res.data.data.steps
-          console.log("Pipeline steps completed:")
-          if (steps.download_audio?.status === "success") console.log("✓ Audio downloaded")
-          if (steps.transcription?.status === "success") console.log("✓ Transcription complete")
-          if (steps.chunking?.status === "success") console.log(`✓ Chunked into ${steps.chunking.num_chunks} pieces`)
-          if (steps.embeddings?.status === "success") console.log(`✓ Generated ${steps.embeddings.num_embeddings} embeddings`)
-          if (steps.vector_storage?.status === "success") console.log(`✓ Stored in vector database`)
-          // Hide success message after 2 seconds
-          setTimeout(() => {
-            setProcessingStatus("")
-          }, 2000)
+        const response = await processVideo({
+          source_url: extractedId,
+          llm_provider: provider,
+        })
+
+        const processedId = response.data?.video_id || extractedId
+        setId(processedId)
+        setTranscriptReady(true)
+
+        if (response.data?.status === 'already_processed') {
+          setProcessingStatus(`Video is already processed. You can start chatting now.`)
         } else {
-          setError("Pipeline did not complete successfully")
-          setProcessingStatus("")
-          setTranscriptReady(false)
-          console.error("Pipeline failed:", res.data)
+          setProcessingStatus(`Video processed successfully. You can start chatting now.`)
         }
       } catch(error: any) {
-        console.error("Error processing video:", error)
-        setError(error.response?.data?.error || error.message || "Failed to process video")
+        setError(error.message || "Failed to process video")
         setProcessingStatus("")
         setTranscriptReady(false)
       } finally {
@@ -64,30 +44,17 @@ const page = () => {
     }
 
     function handleUrl() {
-      let Id = "";
       setError("")
       setProcessingStatus("")
 
-      try {
-        const urlObj = new URL(url);
-        if (urlObj.hostname.includes("youtube.com")) {
-          Id = urlObj.searchParams.get("v") || "";
-        } else if (urlObj.hostname.includes("youtu.be")) {
-          Id = urlObj.pathname.slice(1);
-        }
-      } catch {
-        if (url.includes("v=")) {
-          Id = url.split("v=").pop()?.split("&")[0] || "";
-        } else if (url.includes("youtu.be/")) {
-          Id = url.split("youtu.be/").pop()?.split("?")[0] || "";
-        }
-      }
+      const Id = extractYouTubeVideoId(url)
       
       if (Id) {
-        setId(Id);
-        // Automatically process the video
-        processVideo(Id)
+        setId(Id)
+        handleProcessVideo(Id)
       } else {
+        setId("")
+        setTranscriptReady(false)
         setError("Could not extract video ID. Please check the URL.")
       }
     }
@@ -111,8 +78,9 @@ const page = () => {
         </Button>
       </div>
       
-      {/* Status Messages */}
-      {processingStatus && (
+
+      {/* Status Messages: only show if not transcriptReady or still loading */}
+      {processingStatus && (!transcriptReady || isLoading) && (
         <div className="w-full max-w-6xl px-4 mb-4 p-3 bg-blue-50 border border-blue-200 rounded text-blue-700 text-sm">
           {processingStatus}
         </div>
@@ -139,7 +107,13 @@ const page = () => {
             <div className='text-gray-500 flex items-center justify-center w-full max-w-130 h-75 mx-auto'>Enter a valid YouTube link and click Load Video</div>
           )}
         </div>
-        <Chat />
+        <Chat
+          videoId={videoId}
+          transcriptReady={transcriptReady}
+          provider={provider}
+          onProviderChange={setProvider}
+          providerDisabled={isLoading}
+        />
       </div>
     </div>
   )

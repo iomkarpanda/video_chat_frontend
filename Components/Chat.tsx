@@ -1,8 +1,7 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
-import { chatWithVideo, LlmProvider } from '@/lib/video-chat-api';
+import { chatWithVideo, LlmProvider, fetchChatHistory } from '@/lib/video-chat-api';
 
 
 type ChatProps = {
@@ -13,22 +12,25 @@ type ChatProps = {
   providerDisabled?: boolean;
 };
 
-const Chat = ({
-  videoId,
-  transcriptReady,
-  provider,
-  onProviderChange,
-  providerDisabled = false,
-}: ChatProps) => {
-  const [userMessage, setUserMessage] = useState("");
-  const [messages, setMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([]);
-  const [loading, setLoading] = useState(false);
-  const chatDivRef = useRef<HTMLDivElement>(null);
+  const Chat = ({
+    videoId,
+    transcriptReady,
+    provider,
+    onProviderChange,
+    providerDisabled = false,
+  }: ChatProps) => {
+    const [userMessage, setUserMessage] = useState("");
+    const [messages, setMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [hasHistory, setHasHistory] = useState(false);
+    const [history, setHistory] = useState<{ question: string; answer: string | null; created_at: string }[]>([]);
+    const [liveMessages, setLiveMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([]);
+    const chatDivRef = useRef<HTMLDivElement>(null);
 
   async function sendMessage() {
     if (userMessage.trim() === "" || loading || !transcriptReady || !videoId) return;
     const userMsg = userMessage;
-    setMessages((prev) => [...prev, { role: 'user', content: userMsg }]);
+    appendLiveMessage({ role: 'user', content: userMsg });
     setUserMessage("");
     setLoading(true);
     try {
@@ -38,15 +40,39 @@ const Chat = ({
         llm_provider: provider,
         n_results: 6,
       });
-
       const llmContent = response.data?.llm_response?.message?.content;
-      setMessages((prev) => [...prev, { role: 'assistant', content: llmContent || "[No response]" }]);
+      appendLiveMessage({ role: 'assistant', content: llmContent || "[No response]" });
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Error getting response from LLM";
-      setMessages((prev) => [...prev, { role: 'assistant', content: `[${errorMessage}]` }]);
+      appendLiveMessage({ role: 'assistant', content: `[${errorMessage}]` });
     } finally {
       setLoading(false);
     }
+  }
+
+  useEffect(() => {
+    async function loadHistory() {
+      if (!videoId || !transcriptReady) return;
+      try {
+        const res = await fetchChatHistory(videoId);
+        if (Array.isArray(res.history) && res.history.length > 0) {
+          setHistory(res.history);
+          setLiveMessages([]);
+        } else {
+          setHistory([]);
+          setLiveMessages([]);
+        }
+      } catch (err) {
+        setHistory([]);
+        setLiveMessages([]);
+      }
+    }
+    loadHistory();
+    // Only reload if videoId or transcriptReady changes
+  }, [videoId, transcriptReady]);
+
+  function appendLiveMessage(msg: { role: 'user' | 'assistant', content: string }) {
+    setLiveMessages((prev) => [...prev, msg]);
   }
 
   // Scroll to bottom when messages change
@@ -78,11 +104,35 @@ const Chat = ({
         </select>
       </div>
       <div className="flex-1 max-h-96 overflow-y-auto mb-2" ref={chatDivRef}>
-        {messages.length === 0 ? (
+        {history.length === 0 && liveMessages.length === 0 ? (
           <div className="text-gray-400 text-center mt-20 ">No messages yet.</div>
         ) : (
           <div className="flex flex-col gap-2">
-            {messages.map((msg, idx) => (
+            {history.length > 0 && (
+              <div className="mb-4">
+                <div className="text-center text-xs text-gray-500 mb-1 font-semibold">Chat History</div>
+                <div className="flex flex-col gap-1">
+                  {history.map((item, idx) => (
+                    <React.Fragment key={idx}>
+                      <div className="flex justify-end">
+                        <div className="rounded-2xl px-4 py-2 max-w-[75%] wrap-break-word shadow-sm bg-black text-white rounded-br-sm opacity-80">
+                          {item.question}
+                        </div>
+                      </div>
+                      {item.answer && (
+                        <div className="flex justify-start">
+                          <div className="rounded-2xl px-4 py-2 max-w-[75%] wrap-break-word shadow-sm bg-gray-200 text-gray-900 rounded-bl-sm opacity-80">
+                            {item.answer}
+                          </div>
+                        </div>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </div>
+                <div className="w-full border-t border-gray-300 my-2" />
+              </div>
+            )}
+            {liveMessages.map((msg, idx) => (
               <div
                 key={idx}
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}

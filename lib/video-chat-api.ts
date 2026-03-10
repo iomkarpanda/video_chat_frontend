@@ -1,3 +1,5 @@
+import { getAccessToken } from "@/lib/auth-api";
+
 export type LlmProvider = "gemini" | "ollama";
 
 const API_BASE_URL =
@@ -59,13 +61,33 @@ export type HealthResponse = {
   message: string;
 };
 
+export async function fetchChatHistory(video_id: string) {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const token = typeof window !== "undefined" ? getAccessToken() : null;
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  const url = `${API_BASE_URL}/transcript/history/?video_id=${encodeURIComponent(video_id)}`;
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch chat history: ${response.status}`);
+  }
+  return response.json();
+}
+
 async function postJson<TResponse>(
   path: string,
   body: Record<string, unknown>
 ): Promise<TResponse> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const token = typeof window !== "undefined" ? getAccessToken() : null;
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(body),
   });
 

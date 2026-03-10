@@ -1,11 +1,21 @@
 'use client'
 import { Input } from '@/Components/ui/input'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/Components/ui/button'
 import Chat from '@/Components/Chat'
 import { extractYouTubeVideoId, processVideo } from '@/lib/video-chat-api'
+import { useAuth } from '@/lib/auth-context'
 
 const page = () => {
+    const { isLoggedIn, isLoading: authLoading } = useAuth()
+    const router = useRouter()
+
+    useEffect(() => {
+        if (!authLoading && !isLoggedIn) {
+            router.replace('/login')
+        }
+    }, [isLoggedIn, authLoading, router])
     const [url, setUrl] = useState("");
     const [videoId, setId] = useState("");
     const [transcriptReady, setTranscriptReady] = useState(false)
@@ -57,6 +67,14 @@ const page = () => {
         setTranscriptReady(false)
         setError("Could not extract video ID. Please check the URL.")
       }
+    }
+
+    if (authLoading || !isLoggedIn) {
+        return (
+            <div className="flex flex-col items-center justify-center w-full flex-1 bg-gray-50">
+                <p className="text-gray-600">Loading...</p>
+            </div>
+        )
     }
 
   return (

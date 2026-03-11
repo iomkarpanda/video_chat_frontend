@@ -21,6 +21,7 @@ const Navbar = () => {
       <div className="nav-links w-3/4 md:w-4/5 text-xs sm:text-xs md:text-xs lg:text-base h-full flex justify-around items-center text-white">
         <Link href="/" className='hover:border-b-2'>Home</Link>
         <Link href="/chat" className='hover:border-b-2'>Chat</Link>
+        <Link href="/chathistory" className='hover:border-b-2'>History</Link>
         <Link href="/about" className='hover:border-b-2'>About</Link>
         <Link href="/contact" className='hover:border-b-2'>Contact</Link>
         {!isLoading && (

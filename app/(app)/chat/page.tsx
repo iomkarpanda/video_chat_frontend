@@ -24,6 +24,39 @@ const page = () => {
     const [error, setError] = useState("")
     const [provider, setProvider] = useState<'ollama' | 'gemini'>('gemini')
 
+    const STORAGE_KEY = 'video_chat_last_state'
+
+    // Restore last video/provider when the user comes back to this page
+    useEffect(() => {
+      if (typeof window === 'undefined') return
+      try {
+        const raw = window.sessionStorage.getItem(STORAGE_KEY)
+        if (!raw) return
+        const parsed = JSON.parse(raw) as { videoId?: string; provider?: 'ollama' | 'gemini' }
+        if (parsed.videoId) {
+          setId(parsed.videoId)
+          setTranscriptReady(true)
+        }
+        if (parsed.provider === 'gemini' || parsed.provider === 'ollama') {
+          setProvider(parsed.provider)
+        }
+      } catch {
+        // ignore parse errors
+      }
+    }, [])
+
+    function persistState(nextVideoId: string, nextProvider: 'ollama' | 'gemini') {
+      if (typeof window === 'undefined') return
+      try {
+        window.sessionStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({ videoId: nextVideoId, provider: nextProvider })
+        )
+      } catch {
+        // ignore storage errors
+      }
+    }
+
     async function handleProcessVideo(extractedId: string) {
       setIsLoading(true)
       setError("")
@@ -38,6 +71,7 @@ const page = () => {
         const processedId = response.data?.video_id || extractedId
         setId(processedId)
         setTranscriptReady(true)
+  persistState(processedId, provider)
 
         if (response.data?.status === 'already_processed') {
           setProcessingStatus(`Video is already processed. You can start chatting now.`)

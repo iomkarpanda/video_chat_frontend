@@ -61,18 +61,29 @@ export type HealthResponse = {
   message: string;
 };
 
-export async function fetchChatHistory(video_id: string) {
+export type ChatHistoryItem = {
+  question: string;
+  answer: string | null;
+  created_at: string;
+};
+
+export type ChatHistoryResponse = {
+  history: ChatHistoryItem[];
+};
+
+export async function fetchChatHistory(video_id: string): Promise<ChatHistoryResponse> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   const token = typeof window !== "undefined" ? getAccessToken() : null;
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
-  const url = `${API_BASE_URL}/transcript/history/?video_id=${encodeURIComponent(video_id)}`;
+  // Use the dedicated chathistory endpoint while keeping query semantics the same.
+  const url = `${API_BASE_URL}/transcript/chathistory/?video_id=${encodeURIComponent(video_id)}`;
   const response = await fetch(url, { headers });
   if (!response.ok) {
     throw new Error(`Failed to fetch chat history: ${response.status}`);
   }
-  return response.json();
+  return response.json() as Promise<ChatHistoryResponse>;
 }
 
 async function postJson<TResponse>(

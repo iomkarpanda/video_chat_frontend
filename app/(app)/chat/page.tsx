@@ -23,6 +23,7 @@ const page = () => {
     const [processingStatus, setProcessingStatus] = useState("")
     const [error, setError] = useState("")
     const [provider, setProvider] = useState<'ollama' | 'gemini'>('gemini')
+    const [isVideoLoading, setIsVideoLoading] = useState(false)
 
     const STORAGE_KEY = 'video_chat_last_state'
 
@@ -71,7 +72,8 @@ const page = () => {
         const processedId = response.data?.video_id || extractedId
         setId(processedId)
         setTranscriptReady(true)
-  persistState(processedId, provider)
+      persistState(processedId, provider)
+      setIsVideoLoading(true)
 
         if (response.data?.status === 'already_processed') {
           setProcessingStatus(`Video is already processed. You can start chatting now.`)
@@ -95,6 +97,7 @@ const page = () => {
       
       if (Id) {
         setId(Id)
+        setIsVideoLoading(true)
         handleProcessVideo(Id)
       } else {
         setId("")
@@ -147,14 +150,22 @@ const page = () => {
       <div className="chat-div flex flex-col lg:flex-row justify-center items-center gap-6 w-full max-w-6xl px-4">
         <div className="first-div w-full lg:w-1/2 min-h-75 flex justify-center items-center">
           {videoId ? (
-            <iframe
-              src={`https://www.youtube.com/embed/${videoId}`}
-              title="YouTube video player"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              referrerPolicy="strict-origin-when-cross-origin"
-              className="block w-full max-w-130 aspect-video rounded-lg shadow-lg mx-auto"
-            ></iframe>
+            <div className="relative w-full max-w-130 aspect-video mx-auto">
+              {isVideoLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/60 text-white text-sm z-10">
+                  Loading video...
+                </div>
+              )}
+              <iframe
+                src={`https://www.youtube.com/embed/${videoId}`}
+                title="YouTube video player"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+                className="block w-full h-full rounded-lg shadow-lg"
+                onLoad={() => setIsVideoLoading(false)}
+              ></iframe>
+            </div>
           ) : (
             <div className='text-gray-500 flex items-center justify-center w-full max-w-130 h-75 mx-auto'>Enter a valid YouTube link and click Load Video</div>
           )}

@@ -101,9 +101,146 @@ type AuthErrorResponse = {
   error?: string;
 };
 
+// Shared shape for simple success responses
+export type BasicApiResponse = {
+  message?: string;
+} & AuthErrorResponse;
+
+type RefreshTokenResponse = {
+  token?: string; // backend may use `token`
+  access?: string; // or `access` for JWT
+  refresh?: string;
+  message?: string;
+} & AuthErrorResponse;
+
+async function refreshAccessToken(): Promise<boolean> {
+  const refresh = getRefreshToken();
+  const storage = getStorage();
+  if (!refresh || !storage) {
+    clearTokens();
+    return false;
+  }
+
+  try {
+    const res = await fetch(`${AUTH_BASE_URL}/auth/refresh/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh }),
+    });
+
+    let payload: RefreshTokenResponse | null = null;
+    try {
+      payload = (await res.json()) as RefreshTokenResponse;
+    } catch {
+      // If we cannot parse JSON, treat as failure.
+      clearTokens();
+      return false;
+    }
+
+    if (!res.ok || payload.error) {
+      clearTokens();
+      return false;
+    }
+
+    const newAccess = payload.token || payload.access;
+    const newRefresh = payload.refresh || refresh;
+
+    if (!newAccess) {
+      clearTokens();
+      return false;
+    }
+
+    setTokens(newAccess, newRefresh);
+    return true;
+  } catch {
+    clearTokens();
+    return false;
+  }
+}
+
+async function parseJsonSafe<T>(res: Response): Promise<T | null> {
+  try {
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+ 
+type JsonRequestInit = Omit<RequestInit, "body"> & {
+  body?: unknown;
+};
+
+export async function fetchWithAuthRetry<T>(
+  url: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const maxNetworkRetries = 1;
+
+  const doFetch = async (): Promise<Response> => {
+    const token = getAccessToken();
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+      ...options.headers,
+    };
+    if (token) {
+      (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
+    }
+    return fetch(url, { ...options, headers });
+  };
+
+  let res: Response | null = null;
+
+  for (let attempt = 0; attempt <= maxNetworkRetries; attempt++) {
+    try {
+      res = await doFetch();
+      break;
+    } catch (err) {
+      if (attempt === maxNetworkRetries) {
+        throw new Error(
+          err instanceof Error ? err.message : "Network error while calling API"
+        );
+      }
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+  }
+
+  if (!res) {
+    throw new Error("No response from server");
+  }
+
+  // Attempt token refresh once on 401
+  if (res.status === 401) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      res = await doFetch();
+    }
+  }
+
+  const payload = await parseJsonSafe<T & AuthErrorResponse>(res);
+
+  if (!res.ok) {
+    const baseMessage =
+      payload?.error ||
+      (res.status === 429
+        ? "Rate limit exceeded, please try again later."
+        : `Request failed with status ${res.status}`);
+    throw new Error(baseMessage);
+  }
+
+  if (!payload) {
+    throw new Error("Unexpected empty response from server");
+  }
+
+  if ((payload as AuthErrorResponse).error) {
+    throw new Error((payload as AuthErrorResponse).error as string);
+  }
+
+  return payload as T;
+}
+
 async function authFetch<T>(
   path: string,
-  options: RequestInit & { body?: Record<string, unknown> }
+  options: JsonRequestInit
 ): Promise<T> {
   const { body, ...rest } = options;
   const url = `${AUTH_BASE_URL}/auth${path}`;
@@ -116,10 +253,19 @@ async function authFetch<T>(
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  const payload = (await res.json()) as T & AuthErrorResponse;
+  const payload = await parseJsonSafe<T & AuthErrorResponse>(res);
 
   if (!res.ok) {
-    throw new Error(payload.error || `Request failed with status ${res.status}`);
+    const message =
+      payload?.error ||
+      (res.status === 429
+        ? "Rate limit exceeded, please try again later."
+        : `Request failed with status ${res.status}`);
+    throw new Error(message);
+  }
+
+  if (!payload) {
+    throw new Error("Unexpected empty response from server");
   }
 
   if (payload.error) {

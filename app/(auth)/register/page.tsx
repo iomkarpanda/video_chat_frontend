@@ -23,6 +23,16 @@ const RegisterPage = () => {
       setError('Email and password are required')
       return
     }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long')
+      return
+    }
+    const hasLetter = /[A-Za-z]/.test(password)
+    const hasNumber = /[0-9]/.test(password)
+    if (!hasLetter || !hasNumber) {
+      setError('Password must contain both letters and numbers')
+      return
+    }
     if (password !== retypePassword) {
       setError('Passwords do not match')
       return

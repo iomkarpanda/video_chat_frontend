@@ -1,4 +1,4 @@
-import { getAccessToken } from "@/lib/auth-api";
+import { fetchWithAuthRetry } from "@/lib/auth-api";
 
 export type LlmProvider = "gemini" | "ollama";
 
@@ -72,47 +72,18 @@ export type ChatHistoryResponse = {
 };
 
 export async function fetchChatHistory(video_id: string): Promise<ChatHistoryResponse> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  const token = typeof window !== "undefined" ? getAccessToken() : null;
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-  // Use the dedicated chathistory endpoint while keeping query semantics the same.
   const url = `${API_BASE_URL}/transcript/chathistory/?video_id=${encodeURIComponent(video_id)}`;
-  const response = await fetch(url, { headers });
-  if (!response.ok) {
-    throw new Error(`Failed to fetch chat history: ${response.status}`);
-  }
-  return response.json() as Promise<ChatHistoryResponse>;
+  return fetchWithAuthRetry<ChatHistoryResponse>(url, { method: "GET" });
 }
 
 async function postJson<TResponse>(
   path: string,
   body: Record<string, unknown>
 ): Promise<TResponse> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  const token = typeof window !== "undefined" ? getAccessToken() : null;
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  return fetchWithAuthRetry<TResponse & ApiErrorResponse>(`${API_BASE_URL}${path}`, {
     method: "POST",
-    headers,
     body: JSON.stringify(body),
   });
-
-  const payload = (await response.json()) as TResponse & ApiErrorResponse;
-
-  if (!response.ok) {
-    throw new Error(payload.error || `Request failed with status ${response.status}`);
-  }
-
-  if (payload.error) {
-    throw new Error(payload.error);
-  }
-
-  return payload;
 }
 
 export async function processVideo(
@@ -128,14 +99,10 @@ export async function chatWithVideo(
 }
 
 export async function healthCheck(): Promise<HealthResponse> {
-  const response = await fetch(`${API_BASE_URL}/transcript/health/`);
-  const payload = (await response.json()) as HealthResponse & ApiErrorResponse;
-
-  if (!response.ok) {
-    throw new Error(payload.error || `Health check failed with status ${response.status}`);
-  }
-
-  return payload;
+  return fetchWithAuthRetry<HealthResponse & ApiErrorResponse>(
+    `${API_BASE_URL}/transcript/health/`,
+    { method: "GET" }
+  );
 }
 
 export function extractYouTubeVideoId(input: string): string | null {

@@ -20,9 +20,7 @@ type ChatProps = {
     providerDisabled = false,
   }: ChatProps) => {
     const [userMessage, setUserMessage] = useState("");
-    const [messages, setMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([]);
     const [loading, setLoading] = useState(false);
-    const [hasHistory, setHasHistory] = useState(false);
     const [history, setHistory] = useState<{ question: string; answer: string | null; created_at: string }[]>([]);
     const [liveMessages, setLiveMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([]);
     const chatDivRef = useRef<HTMLDivElement>(null);
@@ -68,11 +66,19 @@ type ChatProps = {
       }
     }
     loadHistory();
-    // Only reload if videoId or transcriptReady changes
-  }, [videoId, transcriptReady]);
+    // Reload if video, transcript readiness, or provider changes
+  }, [videoId, transcriptReady, provider]);
 
   function appendLiveMessage(msg: { role: 'user' | 'assistant', content: string }) {
-    setLiveMessages((prev) => [...prev, msg]);
+    setLiveMessages((prev) => {
+      const next = [...prev, msg];
+      // Prevent unbounded growth of messages in long chats
+      const MAX_MESSAGES = 200;
+      if (next.length > MAX_MESSAGES) {
+        return next.slice(next.length - MAX_MESSAGES);
+      }
+      return next;
+    });
   }
 
   // Scroll to bottom when messages change
@@ -80,7 +86,7 @@ type ChatProps = {
     if (chatDivRef.current) {
       chatDivRef.current.scrollTop = chatDivRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [history, liveMessages]);
 
   function handleInputKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {

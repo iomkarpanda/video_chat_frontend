@@ -72,8 +72,8 @@ const page = () => {
         const processedId = response.data?.video_id || extractedId
         setId(processedId)
         setTranscriptReady(true)
-      persistState(processedId, provider)
-      setIsVideoLoading(true)
+        persistState(processedId, provider)
+        setIsVideoLoading(false)
 
         if (response.data?.status === 'already_processed') {
           setProcessingStatus(`Video is already processed. You can start chatting now.`)

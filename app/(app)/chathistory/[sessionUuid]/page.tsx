@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth-context";
+import { useAuthStore } from "@/store/auth-store";
 import { fetchSessionChatHistory, type SessionChatHistoryItem } from "@/lib/session-api";
 
 const SessionHistoryPage = () => {
-  const { isLoggedIn, isLoading: authLoading } = useAuth();
+  const { isLoggedIn, isLoading: authLoading } = useAuthStore();
   const router = useRouter();
   const params = useParams();
   const sessionUuid = Array.isArray(params.sessionUuid)

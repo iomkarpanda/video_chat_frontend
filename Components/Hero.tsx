@@ -3,7 +3,7 @@ import Link from "next/link"
 
 const Hero = () => {
   return (
-    <div className='max-w-full flex flex-col items-center'>
+    <div className='max-w-full h-full flex flex-col items-center justify-center'>
         <img src="/digital_learning.png" alt="A person sitting and watching desktop" className="w-full max-w-xs sm:max-w-xs md:max-w-sm lg:max-w-sm xl:max-w-sm h-auto object-contain" />
          <div className="w-3/4 lg:w-full  relative z-10 flex flex-col items-center gap-4 pt-6 pb-12">
           <h1 className='text-3xl sm:text-3xl md:text-5xl font-bold text-center'>Ask Retrieve Verify</h1>

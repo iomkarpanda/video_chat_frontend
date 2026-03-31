@@ -5,14 +5,14 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Input } from '@/Components/ui/input'
 import { Button } from '@/Components/ui/button'
-import { useAuth } from '@/lib/auth-context'
+import { useAuthStore } from '@/store/auth-store'
 
 const LoginPage = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { login } = useAuth()
+  const { login } = useAuthStore()
   const router = useRouter()
 
   async function handleSubmit(e: React.FormEvent) {

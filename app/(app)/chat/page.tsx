@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/Components/ui/button'
 import Chat from '@/Components/Chat'
 import { extractYouTubeVideoId, processVideo } from '@/lib/video-chat-api'
-import { useAuth } from '@/lib/auth-context'
+import { useAuthStore } from '@/store/auth-store'
 
 const page = () => {
-    const { isLoggedIn, isLoading: authLoading } = useAuth()
+    const { isLoggedIn, isLoading: authLoading } = useAuthStore()
     const router = useRouter()
 
     useEffect(() => {
@@ -16,13 +16,15 @@ const page = () => {
             router.replace('/login')
         }
     }, [isLoggedIn, authLoading, router])
+
+    
     const [url, setUrl] = useState("");
     const [videoId, setId] = useState("");
     const [transcriptReady, setTranscriptReady] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [processingStatus, setProcessingStatus] = useState("")
     const [error, setError] = useState("")
-    const [provider, setProvider] = useState<'ollama' | 'gemini'>('gemini')
+    const [provider, setProvider] = useState<'ollama' | 'gemini'>('ollama')
     const [isVideoLoading, setIsVideoLoading] = useState(false)
 
     const STORAGE_KEY = 'video_chat_last_state'

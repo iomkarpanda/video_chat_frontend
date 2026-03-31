@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Input } from '@/Components/ui/input'
 import { Button } from '@/Components/ui/button'
-import { useAuth } from '@/lib/auth-context'
+import { useAuthStore } from '@/store/auth-store'
 
 const RegisterPage = () => {
   const [email, setEmail] = useState('')
@@ -13,7 +13,7 @@ const RegisterPage = () => {
   const [retypePassword, setRetypePassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { register } = useAuth()
+  const { register } = useAuthStore()
   const router = useRouter()
 
   async function handleSubmit(e: React.FormEvent) {

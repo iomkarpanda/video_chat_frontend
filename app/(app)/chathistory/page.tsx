@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth-context";
+import { useAuthStore } from "@/store/auth-store";
 import {
   fetchUserChatHistory,
   type UserSessionHistoryItem,
 } from "@/lib/session-api";
 
 const Page = () => {
-  const { isLoggedIn, isLoading: authLoading } = useAuth();
+  const { isLoggedIn, isLoading: authLoading } = useAuthStore();
   const router = useRouter();
   const [sessions, setSessions] = useState<UserSessionHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);

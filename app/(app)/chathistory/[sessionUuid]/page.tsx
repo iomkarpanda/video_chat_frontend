@@ -50,14 +50,6 @@ const SessionHistoryPage = () => {
     );
   }
 
-  if (authLoading || !isLoggedIn) {
-    return (
-      <div className="flex flex-col items-center justify-center w-full flex-1 bg-gray-50">
-        <p className="text-gray-600">Loading...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="w-full flex-1 flex justify-center items-start bg-gray-50 px-4 py-8">
       <div className="w-full max-w-4xl bg-white border border-slate-200 rounded-2xl shadow-lg p-6 space-y-4">

@@ -108,14 +108,6 @@ const page = () => {
       }
     }
 
-    if (authLoading || !isLoggedIn) {
-        return (
-            <div className="flex flex-col items-center justify-center w-full flex-1 bg-gray-50">
-                <p className="text-gray-600">Loading...</p>
-            </div>
-        )
-    }
-
   return (
     <div className='flex flex-col items-center w-full flex-1 bg-gray-50'>
       <div className="flex flex-row items-center justify-center gap-2 sm:gap-4 w-full mt-10 mb-6 px-4">

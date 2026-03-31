@@ -38,8 +38,8 @@ const RegisterPage = () => {
       return
     }
     setLoading(true)
-    try {
-      await register({ email: email.trim(), password })
+  try {
+    await register({ email: email.trim(), password, password_confirm: password })
       router.push('/login')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed')

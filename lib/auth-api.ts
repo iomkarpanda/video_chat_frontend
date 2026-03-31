@@ -62,6 +62,7 @@ export function isAuthenticated(): boolean {
 export type RegisterRequest = {
   email: string;
   password: string;
+  password_confirm: string;
 };
 
 export type RegisterResponse = {

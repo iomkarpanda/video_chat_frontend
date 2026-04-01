@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { chatWithVideo, LlmProvider, fetchChatHistory } from '@/lib/video-chat-api';
@@ -122,13 +124,13 @@ type ChatProps = {
                     <React.Fragment key={idx}>
                       <div className="flex justify-end">
                         <div className="rounded-2xl px-4 py-2 max-w-[75%] wrap-break-word shadow-sm bg-black text-white rounded-br-sm opacity-80">
-                          {item.question}
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.question}</ReactMarkdown>
                         </div>
                       </div>
                       {item.answer && (
                         <div className="flex justify-start">
                           <div className="rounded-2xl px-4 py-2 max-w-[75%] wrap-break-word shadow-sm bg-gray-200 text-gray-900 rounded-bl-sm opacity-80">
-                            {item.answer}
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.answer}</ReactMarkdown>
                           </div>
                         </div>
                       )}
@@ -150,7 +152,7 @@ type ChatProps = {
                       : 'bg-gray-200 text-gray-900 rounded-bl-sm'
                   }`}
                 >
-                  {msg.content}
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                 </div>
               </div>
             ))}

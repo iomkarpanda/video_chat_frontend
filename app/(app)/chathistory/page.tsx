@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth-store";
 import {
   fetchUserChatHistory,
   type UserSessionHistoryItem,
 } from "@/lib/session-api";
+import { AuthError } from "@/lib/auth-api";
 
 const Page = () => {
   const { isLoggedIn, isLoading: authLoading } = useAuthStore();
@@ -21,6 +22,14 @@ const Page = () => {
     }
   }, [isLoggedIn, authLoading, router]);
 
+  const handleAuthError = useCallback((err: unknown) => {
+    if (err instanceof AuthError) {
+      router.replace("/login");
+      return true;
+    }
+    return false;
+  }, [router]);
+
   useEffect(() => {
     async function loadHistory() {
       if (!isLoggedIn || authLoading) return;
@@ -30,6 +39,7 @@ const Page = () => {
         const res = await fetchUserChatHistory();
         setSessions(res.sessions || []);
       } catch (err) {
+        if (handleAuthError(err)) return;
         const msg = err instanceof Error ? err.message : "Failed to load history";
         setError(msg);
       } finally {
@@ -38,7 +48,7 @@ const Page = () => {
     }
 
     loadHistory();
-  }, [isLoggedIn, authLoading]);
+  }, [isLoggedIn, authLoading, handleAuthError]);
 
   if (authLoading || !isLoggedIn) {
     return (

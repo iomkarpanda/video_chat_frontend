@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth-store";
 import { fetchSessionChatHistory, type SessionChatHistoryItem } from "@/lib/session-api";
+import { AuthError } from "@/lib/auth-api";
 
 const SessionHistoryPage = () => {
   const { isLoggedIn, isLoading: authLoading } = useAuthStore();
@@ -23,6 +24,14 @@ const SessionHistoryPage = () => {
     }
   }, [isLoggedIn, authLoading, router]);
 
+  const handleAuthError = useCallback((err: unknown) => {
+    if (err instanceof AuthError) {
+      router.replace("/login");
+      return true;
+    }
+    return false;
+  }, [router]);
+
   useEffect(() => {
     async function loadSessionHistory() {
       if (!isLoggedIn || authLoading || !sessionUuid) return;
@@ -32,6 +41,7 @@ const SessionHistoryPage = () => {
         const res = await fetchSessionChatHistory(sessionUuid);
         setItems(res.history || []);
       } catch (err) {
+        if (handleAuthError(err)) return;
         const msg = err instanceof Error ? err.message : "Failed to load session history";
         setError(msg);
       } finally {
@@ -40,7 +50,7 @@ const SessionHistoryPage = () => {
     }
 
     loadSessionHistory();
-  }, [isLoggedIn, authLoading, sessionUuid]);
+  }, [isLoggedIn, authLoading, sessionUuid, handleAuthError]);
 
   if (!sessionUuid) {
     return (

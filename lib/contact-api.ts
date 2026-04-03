@@ -1,7 +1,7 @@
 import { BasicApiResponse } from "@/lib/auth-api";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "https://video-chat-backend-ddbg.onrender.com" || "http://localhost:8000";
 
 export type ContactRequest = {
   full_name: string;
@@ -20,6 +20,7 @@ export async function submitContact(data: ContactRequest): Promise<ContactRespon
       "Content-Type": "application/json",
     },
     body: JSON.stringify(data),
+    credentials: "include",
   });
 
   let payload: ContactResponse | null = null;

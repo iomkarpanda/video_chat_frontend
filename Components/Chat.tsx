@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { chatWithVideo, LlmProvider, fetchChatHistory } from '@/lib/video-chat-api';
+import { AuthError } from '@/lib/auth-api';
 
 
 type ChatProps = {
@@ -12,6 +13,7 @@ type ChatProps = {
   provider: LlmProvider;
   onProviderChange: (provider: LlmProvider) => void;
   providerDisabled?: boolean;
+  onAuthExpired?: () => void;
 };
 
   const Chat = ({
@@ -20,6 +22,7 @@ type ChatProps = {
     provider,
     onProviderChange,
     providerDisabled = false,
+    onAuthExpired,
   }: ChatProps) => {
     const [userMessage, setUserMessage] = useState("");
     const [loading, setLoading] = useState(false);
@@ -43,6 +46,10 @@ type ChatProps = {
       const llmContent = response.data?.llm_response?.message?.content;
       appendLiveMessage({ role: 'assistant', content: llmContent || "[No response]" });
     } catch (err: unknown) {
+      if (err instanceof AuthError) {
+        onAuthExpired?.();
+        return;
+      }
       const errorMessage = err instanceof Error ? err.message : "Error getting response from LLM";
       appendLiveMessage({ role: 'assistant', content: `[${errorMessage}]` });
     } finally {

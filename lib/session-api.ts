@@ -1,7 +1,7 @@
-import { fetchWithAuthRetry } from "@/lib/auth-api";
+import { fetchWithAuth } from "@/lib/auth-api";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "https://video-chat-backend-ddbg.onrender.com"  || "http://localhost:8000";
 
 export type SessionChatHistoryItem = {
   question: string;
@@ -26,7 +26,7 @@ export type UserHistoryResponse = {
 };
 
 export async function fetchUserChatHistory(): Promise<UserHistoryResponse> {
-  return fetchWithAuthRetry<UserHistoryResponse>(
+  return fetchWithAuth<UserHistoryResponse>(
     `${API_BASE_URL}/session/history/user/`,
     { method: "GET" }
   );
@@ -35,7 +35,7 @@ export async function fetchUserChatHistory(): Promise<UserHistoryResponse> {
 export async function fetchSessionChatHistory(
   sessionUuid: string
 ): Promise<SessionHistoryResponse> {
-  return fetchWithAuthRetry<SessionHistoryResponse>(
+  return fetchWithAuth<SessionHistoryResponse>(
     `${API_BASE_URL}/session/history/${encodeURIComponent(sessionUuid)}/`,
     { method: "GET" }
   );

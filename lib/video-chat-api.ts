@@ -1,9 +1,9 @@
-import { fetchWithAuthRetry } from "@/lib/auth-api";
+import { fetchWithAuth } from "@/lib/auth-api";
 
 export type LlmProvider = "gemini" | "ollama";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "https://video-chat-backend-ddbg.onrender.com" || "http://localhost:8000";
 
 type ApiErrorResponse = {
   error?: string;
@@ -73,14 +73,14 @@ export type ChatHistoryResponse = {
 
 export async function fetchChatHistory(video_id: string): Promise<ChatHistoryResponse> {
   const url = `${API_BASE_URL}/transcript/chathistory/?video_id=${encodeURIComponent(video_id)}`;
-  return fetchWithAuthRetry<ChatHistoryResponse>(url, { method: "GET" });
+  return fetchWithAuth<ChatHistoryResponse>(url, { method: "GET" });
 }
 
 async function postJson<TResponse>(
   path: string,
   body: Record<string, unknown>
 ): Promise<TResponse> {
-  return fetchWithAuthRetry<TResponse & ApiErrorResponse>(`${API_BASE_URL}${path}`, {
+  return fetchWithAuth<TResponse & ApiErrorResponse>(`${API_BASE_URL}${path}`, {
     method: "POST",
     body: JSON.stringify(body),
   });
@@ -99,7 +99,7 @@ export async function chatWithVideo(
 }
 
 export async function healthCheck(): Promise<HealthResponse> {
-  return fetchWithAuthRetry<HealthResponse & ApiErrorResponse>(
+  return fetchWithAuth<HealthResponse & ApiErrorResponse>(
     `${API_BASE_URL}/transcript/health/`,
     { method: "GET" }
   );

@@ -1,11 +1,12 @@
 'use client'
 import { Input } from '@/Components/ui/input'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/Components/ui/button'
 import Chat from '@/Components/Chat'
 import { extractYouTubeVideoId, processVideo } from '@/lib/video-chat-api'
 import { useAuthStore } from '@/store/auth-store'
+import { AuthError } from '@/lib/auth-api'
 
 const page = () => {
     const { isLoggedIn, isLoading: authLoading } = useAuthStore()
@@ -29,7 +30,6 @@ const page = () => {
 
     const STORAGE_KEY = 'video_chat_last_state'
 
-    // Restore last video/provider when the user comes back to this page
     useEffect(() => {
       if (typeof window === 'undefined') return
       try {
@@ -60,10 +60,19 @@ const page = () => {
       }
     }
 
+    const handleAuthError = useCallback((err: unknown) => {
+      if (err instanceof AuthError) {
+        router.replace('/login')
+        return true
+      }
+      return false
+    }, [router])
+
     async function handleProcessVideo(extractedId: string) {
       setIsLoading(true)
       setError("")
       setProcessingStatus("Processing video transcript...")
+      setIsVideoLoading(true)
       
       try {
         const response = await processVideo({
@@ -75,23 +84,24 @@ const page = () => {
         setId(processedId)
         setTranscriptReady(true)
         persistState(processedId, provider)
-        setIsVideoLoading(false)
 
         if (response.data?.status === 'already_processed') {
           setProcessingStatus(`Video is already processed. You can start chatting now.`)
         } else {
           setProcessingStatus(`Video processed successfully. You can start chatting now.`)
         }
-      } catch(error: any) {
-        setError(error.message || "Failed to process video")
+      } catch(err: unknown) {
+        if (handleAuthError(err)) return
+        setError(err instanceof Error ? err.message : "Failed to process video")
         setProcessingStatus("")
         setTranscriptReady(false)
+        setId("")
       } finally {
         setIsLoading(false)
       }
     }
 
-    function handleUrl() {
+    async function handleUrl() {
       setError("")
       setProcessingStatus("")
 
@@ -99,10 +109,10 @@ const page = () => {
       
       if (Id) {
         setId(Id)
-        setIsVideoLoading(true)
-        handleProcessVideo(Id)
+        await handleProcessVideo(Id)
       } else {
         setId("")
+        setIsVideoLoading(false)
         setTranscriptReady(false)
         setError("Could not extract video ID. Please check the URL.")
       }
@@ -170,6 +180,7 @@ const page = () => {
           provider={provider}
           onProviderChange={setProvider}
           providerDisabled={isLoading}
+          onAuthExpired={() => router.replace('/login')}
         />
       </div>
     </div>

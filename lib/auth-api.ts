@@ -1,163 +1,50 @@
 /**
- * Auth API integration per Frontend Integration Guide.
- * Base URL: http://localhost:8000/auth/
+ * Auth API integration with HTTP-only cookie-based JWT auth.
+ *
+ * Tokens are stored in HTTP-only, secure, SameSite=None cookies set by the backend.
+ * The browser automatically sends cookies with requests (credentials: 'include').
+ * On 401, the access token is automatically refreshed using the refresh cookie.
+ * If refresh fails, an AuthError is thrown and the UI should redirect to login.
  */
 
 const AUTH_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "https://video-chat-backend-ddbg.onrender.com" ||"http://localhost:8000";
 
-const ACCESS_TOKEN_KEY = "auth_access_token";
-const REFRESH_TOKEN_KEY = "auth_refresh_token";
+let authenticated = false;
 
-// In-memory access token (preferred for SPAs per guide)
-let accessToken: string | null = null;
+type AuthChangeListener = (isAuthenticated: boolean) => void;
+const authChangeListeners = new Set<AuthChangeListener>();
 
-function getStorage(): Storage | null {
-  if (typeof window === "undefined") return null;
-  return window.sessionStorage;
+export function onAuthChange(listener: AuthChangeListener): () => void {
+  authChangeListeners.add(listener);
+  return () => {
+    authChangeListeners.delete(listener);
+  };
 }
 
-export function getAccessToken(): string | null {
-  if (accessToken) return accessToken;
-  const storage = getStorage();
-  if (storage) {
-    const stored = storage.getItem(ACCESS_TOKEN_KEY);
-    if (stored) {
-      accessToken = stored;
-      return stored;
-    }
-  }
-  return null;
-}
-
-export function getRefreshToken(): string | null {
-  const storage = getStorage();
-  return storage?.getItem(REFRESH_TOKEN_KEY) ?? null;
-}
-
-export function setTokens(token: string, refresh: string): void {
-  accessToken = token;
-  const storage = getStorage();
-  if (storage) {
-    storage.setItem(ACCESS_TOKEN_KEY, token);
-    storage.setItem(REFRESH_TOKEN_KEY, refresh);
+function notifyAuthChange(isAuth: boolean) {
+  if (authenticated !== isAuth) {
+    authenticated = isAuth;
+    authChangeListeners.forEach((fn) => fn(isAuth));
   }
 }
 
-export function clearTokens(): void {
-  accessToken = null;
-  const storage = getStorage();
-  if (storage) {
-    storage.removeItem(ACCESS_TOKEN_KEY);
-    storage.removeItem(REFRESH_TOKEN_KEY);
-  }
+export function setAuthenticated(isAuth: boolean): void {
+  notifyAuthChange(isAuth);
 }
 
 export function isAuthenticated(): boolean {
-  return !!getAccessToken();
+  return authenticated;
 }
 
-// --- API types ---
-
-export type RegisterRequest = {
-  email: string;
-  password: string;
-  password_confirm: string;
-};
-
-export type RegisterResponse = {
-  message: string;
-};
-
-export type LoginRequest = {
-  email: string;
-  password: string;
-};
-
-export type LoginResponse = {
-  message: string;
-  token: string;
-  refresh: string;
-};
-
-export type LogoutRequest = {
-  refresh: string;
-};
-
-export type LogoutResponse = {
-  message: string;
-};
-
-export type ChangePasswordRequest = {
-  email: string;
-  current_password: string;
-  new_password: string;
-};
-
-export type ChangePasswordResponse = {
-  message?: string;
-};
-
-type AuthErrorResponse = {
-  error?: string;
-};
-
-// Shared shape for simple success responses
-export type BasicApiResponse = {
-  message?: string;
-} & AuthErrorResponse;
-
-type RefreshTokenResponse = {
-  token?: string; // backend may use `token`
-  access?: string; // or `access` for JWT
-  refresh?: string;
-  message?: string;
-} & AuthErrorResponse;
-
-async function refreshAccessToken(): Promise<boolean> {
-  const refresh = getRefreshToken();
-  const storage = getStorage();
-  if (!refresh || !storage) {
-    clearTokens();
-    return false;
-  }
-
-  try {
-    const res = await fetch(`${AUTH_BASE_URL}/auth/refresh/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh }),
-    });
-
-    let payload: RefreshTokenResponse | null = null;
-    try {
-      payload = (await res.json()) as RefreshTokenResponse;
-    } catch {
-      // If we cannot parse JSON, treat as failure.
-      clearTokens();
-      return false;
-    }
-
-    if (!res.ok || payload.error) {
-      clearTokens();
-      return false;
-    }
-
-    const newAccess = payload.token || payload.access;
-    const newRefresh = payload.refresh || refresh;
-
-    if (!newAccess) {
-      clearTokens();
-      return false;
-    }
-
-    setTokens(newAccess, newRefresh);
-    return true;
-  } catch {
-    clearTokens();
-    return false;
+export class AuthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AuthError";
   }
 }
+
+const credentials: RequestCredentials = "include";
 
 async function parseJsonSafe<T>(res: Response): Promise<T | null> {
   try {
@@ -166,78 +53,10 @@ async function parseJsonSafe<T>(res: Response): Promise<T | null> {
     return null;
   }
 }
- 
+
 type JsonRequestInit = Omit<RequestInit, "body"> & {
   body?: unknown;
 };
-
-export async function fetchWithAuthRetry<T>(
-  url: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const maxNetworkRetries = 1;
-
-  const doFetch = async (): Promise<Response> => {
-    const token = getAccessToken();
-    const headers: HeadersInit = {
-      "Content-Type": "application/json",
-      ...options.headers,
-    };
-    if (token) {
-      (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
-    }
-    return fetch(url, { ...options, headers });
-  };
-
-  let res: Response | null = null;
-
-  for (let attempt = 0; attempt <= maxNetworkRetries; attempt++) {
-    try {
-      res = await doFetch();
-      break;
-    } catch (err) {
-      if (attempt === maxNetworkRetries) {
-        throw new Error(
-          err instanceof Error ? err.message : "Network error while calling API"
-        );
-      }
-      await new Promise((resolve) => setTimeout(resolve, 300));
-    }
-  }
-
-  if (!res) {
-    throw new Error("No response from server");
-  }
-
-  // Attempt token refresh once on 401
-  if (res.status === 401) {
-    const refreshed = await refreshAccessToken();
-    if (refreshed) {
-      res = await doFetch();
-    }
-  }
-
-  const payload = await parseJsonSafe<T & AuthErrorResponse>(res);
-
-  if (!res.ok) {
-    const baseMessage =
-      payload?.error ||
-      (res.status === 429
-        ? "Rate limit exceeded, please try again later."
-        : `Request failed with status ${res.status}`);
-    throw new Error(baseMessage);
-  }
-
-  if (!payload) {
-    throw new Error("Unexpected empty response from server");
-  }
-
-  if ((payload as AuthErrorResponse).error) {
-    throw new Error((payload as AuthErrorResponse).error as string);
-  }
-
-  return payload as T;
-}
 
 async function authFetch<T>(
   path: string,
@@ -247,6 +66,7 @@ async function authFetch<T>(
   const url = `${AUTH_BASE_URL}/auth${path}`;
   const res = await fetch(url, {
     ...rest,
+    credentials,
     headers: {
       "Content-Type": "application/json",
       ...options.headers,
@@ -254,7 +74,7 @@ async function authFetch<T>(
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  const payload = await parseJsonSafe<T & AuthErrorResponse>(res);
+  const payload = await parseJsonSafe<T & { error?: string }>(res);
 
   if (!res.ok) {
     const message =
@@ -276,35 +96,161 @@ async function authFetch<T>(
   return payload;
 }
 
+export async function fetchWithAuth<T>(
+  url: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const res = await fetch(url, {
+    ...options,
+    credentials,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+  if (res.status === 401) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      const retryRes = await fetch(url, {
+        ...options,
+        credentials,
+        headers: {
+          "Content-Type": "application/json",
+          ...options.headers,
+        },
+      });
+      if (retryRes.status === 401) {
+        notifyAuthChange(false);
+        throw new AuthError("Session expired. Please log in again.");
+      }
+      const payload = await parseJsonSafe<T & { error?: string }>(retryRes);
+      if (!retryRes.ok) {
+        const message =
+          (payload as any)?.error || `Request failed with status ${retryRes.status}`;
+        throw new Error(message);
+      }
+      return payload as T;
+    } else {
+      notifyAuthChange(false);
+      throw new AuthError("Session expired. Please log in again.");
+    }
+  }
+
+  const payload = await parseJsonSafe<T & { error?: string }>(res);
+
+  if (!res.ok) {
+    const message =
+      (payload as any)?.error ||
+      (res.status === 429
+        ? "Rate limit exceeded, please try again later."
+        : `Request failed with status ${res.status}`);
+    throw new Error(message);
+  }
+
+  if (!payload) {
+    throw new Error("Unexpected empty response from server");
+  }
+
+  if ((payload as any).error) {
+    throw new Error((payload as any).error);
+  }
+
+  return payload as T;
+}
+
+async function refreshAccessToken(): Promise<boolean> {
+  try {
+    const res = await fetch(`${AUTH_BASE_URL}/auth/refresh/`, {
+      method: "POST",
+      credentials,
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!res.ok) {
+      notifyAuthChange(false);
+      return false;
+    }
+
+    notifyAuthChange(true);
+    return true;
+  } catch {
+    notifyAuthChange(false);
+    return false;
+  }
+}
+
+// --- API types ---
+
+export type RegisterRequest = {
+  email: string;
+  password: string;
+  password_confirm: string;
+};
+
+export type RegisterResponse = {
+  message: string;
+};
+
+export type LoginRequest = {
+  email: string;
+  password: string;
+};
+
+export type LoginResponse = {
+  message: string;
+};
+
+export type LogoutResponse = {
+  message: string;
+};
+
+export type ChangePasswordRequest = {
+  email: string;
+  current_password: string;
+  new_password: string;
+};
+
+export type ChangePasswordResponse = {
+  message?: string;
+};
+
+export type BasicApiResponse = {
+  message?: string;
+  error?: string;
+};
+
+// --- Auth endpoints ---
+
 export async function register(data: RegisterRequest): Promise<RegisterResponse> {
-  return authFetch<RegisterResponse>("/register/", {
+  const result = await authFetch<RegisterResponse>("/register/", {
     method: "POST",
     body: data,
   });
+  notifyAuthChange(true);
+  return result;
 }
 
 export async function login(data: LoginRequest): Promise<LoginResponse> {
-  return authFetch<LoginResponse>("/login/", {
+  const result = await authFetch<LoginResponse>("/login/", {
     method: "POST",
     body: data,
   });
+  notifyAuthChange(true);
+  return result;
 }
 
 export async function logout(): Promise<LogoutResponse> {
-  const refresh = getRefreshToken();
-  if (!refresh) {
-    clearTokens();
-    return { message: "Logout successful" };
-  }
   try {
-    const res = await authFetch<LogoutResponse>("/logout/", {
+    await authFetch<LogoutResponse>("/logout/", {
       method: "POST",
-      body: { refresh },
     });
-    return res;
+  } catch {
+    // ignore logout errors
   } finally {
-    clearTokens();
+    notifyAuthChange(false);
   }
+  return { message: "Logout successful" };
 }
 
 export async function changePassword(
